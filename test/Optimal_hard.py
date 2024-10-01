@@ -4,30 +4,28 @@ sys.path.append('../')
 import random
 import numpy as np
 from tqdm import tqdm
-from env.env import *
-from algorithms.ucrl2_vtr_hard_gurobi import UCRL2_VTR
+from env.env import HardLinearMixtureMDP
 import multiprocessing as mp
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Function to run a single experiment
-def run_experiment(run, seed, d, D, T, delta, lam, epsilon, resultDir):
+def run_experiment(run, seed, d, D, T, resultDir):
     random.seed(seed)
     
     # Create the environment
     env = HardLinearMixtureMDP(d=d, D=D, T=T)
     
-    # Initialize the agent
-    agent = UCRL2_VTR(env, T=T, c=1e-2, delta=delta, lam=lam, epsilon=epsilon)
-    episodic_return = agent.run()
+    # Run the agent
+    returns = env.run_optimal_policy()
     print("seed %d done"%(seed))
 
     # Save the result
     if not os.path.exists(resultDir):
         os.makedirs(resultDir)  # Create the directory if it doesn't exist
-    np.save(resultDir + f'/return{run}.npy', episodic_return)
+    np.save(resultDir + f'/return{run}.npy', returns)
 
-    return episodic_return
+    return returns
 
 def main():
     runs = 10  # Adjust this based on the number of parallel runs
@@ -35,18 +33,14 @@ def main():
     d = 8
     D = 5
     T = 500
-    
-    delta = 0.01
-    lam = 1
-    epsilon = min(0.01, 1 / np.sqrt(T))
 
-    resultDir = '../data/hardtolearn/T=' + str(T) + '/UCRL2-VTR'
+    resultDir = '../data/hardtolearn/T=' + str(T) + '/Optimal Policy'
     
     # Use multiprocessing to run experiments in parallel
     pool = mp.Pool(mp.cpu_count())  # Use all available CPUs
 
     # Use pool.starmap to distribute the runs in parallel
-    results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, delta, lam, epsilon, resultDir) for run in range(runs)])
+    results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, resultDir) for run in range(runs)])
 
     pool.close()  # Close the pool to prevent new tasks from being submitted
     pool.join()  # Wait for all worker processes to finish

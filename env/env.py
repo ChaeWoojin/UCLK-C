@@ -73,13 +73,14 @@ class HardLinearMixtureMDP:
     def run_optimal_policy(self):
         optimal_policy = [self.action_rank[0], self.action_rank[0]]
         total_reward_optimal = []
-
+        R = 0
         self.reset() 
         for t in range(self.T):
             s_t = self.state
             a_t = optimal_policy[s_t] 
-            _, reward = self.step(s_t, a_t) 
-            total_reward_optimal.append(reward)
+            _, reward = self.advance(a_t) 
+            R += reward
+            total_reward_optimal.append(R)
         return total_reward_optimal
 
     def argmax(self,b):

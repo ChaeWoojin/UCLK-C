@@ -12,8 +12,7 @@ class HardLinearMixtureMDP:
         self.timestep = 0
         self.state = 0 
         
-        # self.triangle = (1/45 * np.sqrt(2*np.log(2)/5)) * (self.d) / np.sqrt(self.D * self.T)
-        self.triangle = (1/5 * np.sqrt(2*np.log(2))) * (self.d) / np.sqrt(self.D * self.T)
+        self.triangle = 1/45 * (self.d - 1) / np.sqrt((2 * self.T * np.log(2)) / (5 * self.delta))
         self.alpha = np.sqrt(self.triangle / ((self.d - 1) * (1 + self.triangle)))
         self.beta =  np.sqrt(1 / (1 + self.triangle))
         
@@ -24,6 +23,7 @@ class HardLinearMixtureMDP:
         self.phi = self.generate_phi()
         
         self.J_star = (self.delta + self.triangle) / (2 * self.delta + self.triangle)
+        self.H = 2 / (2 * self.delta + self.triangle)
         self.action_rank = np.argsort(np.array([np.dot(self.actions[i], self.theta) for i in range(self.nAction)]))[::-1]
                       
     def reset(self):
@@ -71,36 +71,61 @@ class HardLinearMixtureMDP:
         return reward, self.state
     
     def run_optimal_policy(self):
-        optimal_policy = [self.action_rank[0], self.action_rank[0]]
+        # total_reward_optimal = []
+        # R = 0
+        # self.reset() 
+        # for t in range(self.T):
+        #     s_t = self.state
+        #     a_t = optimal_policy[s_t] 
+        #     _, reward = self.advance(a_t) 
+        #     R += reward
+        #     total_reward_optimal.append(R)
+        
         total_reward_optimal = []
         R = 0
-        self.reset() 
         for t in range(self.T):
-            s_t = self.state
-            a_t = optimal_policy[s_t] 
-            _, reward = self.advance(a_t) 
-            R += reward
-            total_reward_optimal.append(R)
+            R += self.J_star
+            total_reward_optimal.append(R)       
         return total_reward_optimal
 
     def argmax(self,b):
         return np.random.choice(np.flatnonzero(b == b.max()))   
 
-# d = 8
-# D = 5
-# T = 500
+def run_mdp_with_hyperparams(d, D, T):
+    mdp = HardLinearMixtureMDP(d=d, D=D, T=T)
+    triangle = mdp.triangle
+    actions = mdp.actions
+    theta = mdp.theta
+    theta_til = mdp.theta_tilde
+    delta = mdp.delta
+    alpha = mdp.alpha
+    beta = mdp.beta
+    H = mdp.H
+    rank = mdp.action_rank
 
-# mdp = HardLinearMixtureMDP(d=d, D=D, T=T)
-# triangle = mdp.triangle
-# actions = mdp.actions
-# theta = mdp.theta
-# delta = mdp.delta
-# rank = mdp.action_rank
+    print(f"Running MDP with d={d}, D={D}, T={T}")
+    print("delta:", delta, "triangle:", triangle, "alpha:", alpha, "beta:", beta)
+    print("theta:", theta)
+    print("theta_til:", theta_til)
+    print("Condition 1 (3*triangle <= delta) LHS:", triangle * 3, "RHS:", delta)
+    print("Condition 2 (T >= 16(d-1)**2/(2025 delta)) LHS:", T, "RHS:", 16 * (d-1)**2 / (delta * 2025))
+    print("P(x1|x0, a_best)", delta + np.dot(theta, actions[rank[0]]))
+    print("P(x0|x0, a_best):", 1 - delta - np.dot(theta, actions[rank[0]]))
+    print("P(x1|x1, _)", 1 - delta)
+    print("P(x0|x1, _)", delta)
+    print("H:", H)
 
-# print(triangle * 4, delta)
-# print(1/delta - 1, T/5)
+    # Here you can run the optimal policy to check its performance
+    total_reward_optimal = mdp.run_optimal_policy()
+    print(f"Total reward for optimal policy: {total_reward_optimal[-1]}")
+    print("\n")
+    return total_reward_optimal
 
-# print(1 - delta - np.dot(theta, actions[rank[0]]))
-# print(1 - delta - np.dot(theta, actions[rank[-1]]))
+# # Define the hyperparameters ranges to try
+# d_values = [8]  # Example values for 'd'
+# D_values = np.linspace(1.5, 3, 10)  # Example values for 'D'
+# T_values = [500]  # Example values for 'T'
 
-# print(mdp.phi)
+# # Iterate over all hyperparameter combinations
+# for d, D, T in itertools.product(d_values, D_values, T_values):
+#     total_reward_optimal = run_mdp_with_hyperparams(d, D, T)

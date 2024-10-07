@@ -5,7 +5,7 @@ import random
 import numpy as np
 from tqdm import tqdm
 from env.env import *
-from algorithms.ucrl2_vtr_hard_gurobi import UCRL2_VTR
+from algorithms.ucrl2_vtr_bernstein_hard_gurobi import UCRL2_VTR
 import multiprocessing as mp
 import matplotlib.pyplot as plt
 import seaborn as sns

@@ -3,28 +3,25 @@ from tqdm import tqdm
 import cvxpy as cp
 
 class UCRL2_VTR(object):
-    def __init__(self, env, T, c, delta, lam, epsilon):
+    def __init__(self, env, T, delta, epsilon):
         self.env = env
         self.T = T
         self.d = env.d
 
-        # ground truth
         self.theta_star = self.env.theta_tilde
 
-        # gram matrix
         self.A = np.identity(self.d)
         self.Ainv = np.linalg.inv(self.A)
         self.b = np.zeros(self.d)
+
+        self.theta = np.zeros(self.d)
         
-        self.lam = lam  
         self.B = max(self.env.triangle ** 2 + 1, np.linalg.norm(self.theta_star, ord=2))
+        self.lam = 1 / (self.B**2) 
         self.delta = delta
         self.epsilon = epsilon
 
         self.phi = env.phi
-
-        # theta
-        self.theta = np.zeros(self.d)
         
     def mixture(self, s, a, u):
         return np.sum(np.array([np.multiply(u[s_], self.phi[(s, a, s_)]) for s_ in range(self.env.nState)]), axis=0)

@@ -1,5 +1,5 @@
 from env.env import HardLinearMixtureMDP
-from algorithms.ucrl2_vtr_hard_gurobi import UCRL2_VTR
+from algorithms.ucrl2_vtr_bernstein_hard_gurobi import UCRL2_VTR
 import matplotlib.pyplot as plt
 import numpy as np
 

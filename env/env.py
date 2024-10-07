@@ -12,7 +12,8 @@ class HardLinearMixtureMDP:
         self.timestep = 0
         self.state = 0 
         
-        self.triangle = 1/45 * (self.d - 1) / np.sqrt((2 * self.T * np.log(2)) / (5 * self.delta))
+        # self.triangle = 1/45 * (self.d - 1) / np.sqrt((2 * self.T * np.log(2)) / (5 * self.delta))
+        self.triangle = 1/2 * (self.d - 1) / np.sqrt((2 * self.T * np.log(2)) / (5 * self.delta))
         self.alpha = np.sqrt(self.triangle / ((self.d - 1) * (1 + self.triangle)))
         self.beta =  np.sqrt(1 / (1 + self.triangle))
         
@@ -71,21 +72,22 @@ class HardLinearMixtureMDP:
         return reward, self.state
     
     def run_optimal_policy(self):
-        # total_reward_optimal = []
-        # R = 0
-        # self.reset() 
-        # for t in range(self.T):
-        #     s_t = self.state
-        #     a_t = optimal_policy[s_t] 
-        #     _, reward = self.advance(a_t) 
-        #     R += reward
-        #     total_reward_optimal.append(R)
-        
+        optimal_policy = [self.action_rank[0], self.action_rank[0]]
         total_reward_optimal = []
         R = 0
+        self.reset() 
         for t in range(self.T):
-            R += self.J_star
-            total_reward_optimal.append(R)       
+            s_t = self.state
+            a_t = optimal_policy[s_t] 
+            _, reward = self.advance(a_t) 
+            R += reward
+            total_reward_optimal.append(R)
+        
+        # total_reward_optimal = []
+        # R = 0
+        # for t in range(self.T):
+        #     R += self.J_star
+        #     total_reward_optimal.append(R)       
         return total_reward_optimal
 
     def argmax(self,b):
@@ -110,7 +112,9 @@ def run_mdp_with_hyperparams(d, D, T):
     print("Condition 1 (3*triangle <= delta) LHS:", triangle * 3, "RHS:", delta)
     print("Condition 2 (T >= 16(d-1)**2/(2025 delta)) LHS:", T, "RHS:", 16 * (d-1)**2 / (delta * 2025))
     print("P(x1|x0, a_best)", delta + np.dot(theta, actions[rank[0]]))
+    print("P(x1|x0, a_worst)", delta + np.dot(theta, actions[rank[-1]]))
     print("P(x0|x0, a_best):", 1 - delta - np.dot(theta, actions[rank[0]]))
+    print("P(x0|x0, a_worst):", 1 - delta - np.dot(theta, actions[rank[-1]]))
     print("P(x1|x1, _)", 1 - delta)
     print("P(x0|x1, _)", delta)
     print("H:", H)
@@ -123,8 +127,8 @@ def run_mdp_with_hyperparams(d, D, T):
 
 # # Define the hyperparameters ranges to try
 # d_values = [8]  # Example values for 'd'
-# D_values = np.linspace(1.5, 3, 10)  # Example values for 'D'
-# T_values = [500]  # Example values for 'T'
+# D_values = np.linspace(1.5, 101.5, 21)  # Example values for 'D'
+# T_values = [5000]  # Example values for 'T'
 
 # # Iterate over all hyperparameter combinations
 # for d, D, T in itertools.product(d_values, D_values, T_values):

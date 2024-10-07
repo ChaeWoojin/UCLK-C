@@ -1,52 +1,66 @@
-import os
 import sys
 sys.path.append('../')
+import os
 import random
 import numpy as np
+import json
 from tqdm import tqdm
 from env.env import *
-from algorithms.ucrl2_vtr_bernstein_hard_gurobi import UCRL2_VTR
+from algorithms.ucrl2_vtr_bernstein_hard_gurobi import UCRL2_VTR_BERNSTEIN
 import multiprocessing as mp
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Function to run a single experiment
-def run_experiment(run, seed, d, D, T, delta, lam, epsilon, resultDir):
+def run_experiment(run, seed, d, D, T, N, delta, epsilon, resultDir):
     random.seed(seed)
     
     # Create the environment
     env = HardLinearMixtureMDP(d=d, D=D, T=T)
     
     # Initialize the agent
-    agent = UCRL2_VTR(env, T=T, c=1e-2, delta=delta, lam=lam, epsilon=epsilon)
-    episodic_return = agent.run()
+    agent = UCRL2_VTR_BERNSTEIN(env, T=T, N=N, delta=delta, epsilon=epsilon)
+
+    # Run the UCLR2_VTR_BERNSTEIN algorithm
+    cumulative_return = agent.run()
     print("seed %d done"%(seed))
 
-    # Save the result
+    # Compute the regret as the difference between the optimal return and cumulative return
+    opt_return = env.run_optimal_policy()
+    cumulative_regret = np.array(opt_return) - np.array(cumulative_return)
+    print(f"Run {run}, seed {seed} done")
+
+    # Save the results (cumulative_return and cumulative_regret) in a JSON file
+    results = {
+        'cumulative_return': cumulative_return,
+        'cumulative_regret': cumulative_regret.tolist()
+    }
+
     if not os.path.exists(resultDir):
         os.makedirs(resultDir)  # Create the directory if it doesn't exist
-    np.save(resultDir + f'/return{run}.npy', episodic_return)
 
-    return episodic_return
+    with open(os.path.join(resultDir, f'results_run{run}.json'), 'w') as f:
+        json.dump(results, f)
+
+    return cumulative_regret
 
 def main():
     runs = 10  # Adjust this based on the number of parallel runs
-    seeds = [123 * (i + 1) for i in range(runs)]
+    seeds = [123 * i for i in range(runs)]
     d = 8
-    D = 5
-    T = 500
-    
-    delta = 0.01
-    lam = 1
-    epsilon = min(0.01, 1 / np.sqrt(T))
+    D = 
+    T = 10000
+    N = 200
+    delta = 0.05
+    epsilon = 0.000001
 
-    resultDir = '../data/hardtolearn/T=' + str(T) + '/UCRL2-VTR'
+    resultDir = f"../data/hardtolearn/UCRL2_VTR(BERNSTEIN)/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}"
     
     # Use multiprocessing to run experiments in parallel
     pool = mp.Pool(mp.cpu_count())  # Use all available CPUs
 
     # Use pool.starmap to distribute the runs in parallel
-    results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, delta, lam, epsilon, resultDir) for run in range(runs)])
+    results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, N, delta, epsilon, resultDir) for run in range(runs)])
 
     pool.close()  # Close the pool to prevent new tasks from being submitted
     pool.join()  # Wait for all worker processes to finish

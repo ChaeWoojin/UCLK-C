@@ -17,11 +17,14 @@ def run_experiment(run, seed, d, D, T, N, delta, epsilon, resultDir):
     
     # Create the environment
     env = HardLinearMixtureMDP(d=d, D=D, T=T)
+    
+    # Initialize the agent
     agent = UCLK_C(env, T=T, delta=delta, N=N, epsilon=epsilon)
 
     # Run the UCLK_C algorithm
     cumulative_return = agent.run()
-
+    print("seed %d done"%(seed))
+    
     # Compute the regret as the difference between the optimal return and cumulative return
     opt_return = env.run_optimal_policy()
     cumulative_regret = np.array(opt_return) - np.array(cumulative_return)
@@ -43,9 +46,9 @@ def run_experiment(run, seed, d, D, T, N, delta, epsilon, resultDir):
 
 def main():
     runs = 10  # Adjust this based on the number of parallel runs
-    seeds = [123 * (i) for i in range(runs)]
+    seeds = [123 * i for i in range(runs)]
     d = 8
-    D = 121.5
+    D = 
     T = 10000
     N = 200
     delta = 0.05

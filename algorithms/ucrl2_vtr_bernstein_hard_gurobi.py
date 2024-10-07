@@ -133,29 +133,30 @@ class UCRL2_VTR_BERNSTEIN(object):
         return VW + E
 
     def run(self):
-        print('UCLK_C')
+        print('UCRL2-VTR(BERNSTEIN)')
         cumulative_return = []
 
-        A_hat_k = self.A_hat.copy()
-        A_til_k = self.A_til.copy()
-        
         t_k = 1
-        q_k, v_k = self.EVI(t_k)
-        w_k = v_k - np.min(v_k) 
-        pi = self.POLICY(q_k)
-        
+        A_hat_k = self.A_hat.copy()
+
+        w_k = np.ones(self.env.nState)
         R = 0
+
         for t in tqdm(range(1, self.T + 1)):
             if np.linalg.det(self.A_hat) > 2 * np.linalg.det(A_hat_k):
+                t_k = t
                 A_hat_k = self.A_hat.copy()
 
-                t_k = t
                 u_k = self.EVI(t_k)
-                w_k = u_k - (max(u_k) + min(u_k)) / 2 
                 pi = self.POLICY(u_k, t_k)
+                
+                w_k = u_k - (max(u_k) - min(u_k)) / 2
 
             s = self.env.state
-            a = pi[s]
+            if t_k == 1:
+                a = np.random.choice([a for a in range(self.env.nAction)])
+            else:
+                a = pi[s]
                 
             r, s_ = self.env.advance(a)
             R += r
@@ -190,7 +191,7 @@ def evaluate_hyperparameters(args):
     env = HardLinearMixtureMDP(d=d, D=D, T=T)
     agent = UCRL2_VTR_BERNSTEIN(env, T=T, delta=delta, N=N, epsilon=epsilon)  # N is set arbitrarily
 
-    # Run the UCLK_C algorithm
+    # Run the UCRL2_VTR_BERNSTEIN algorithm
     cumulative_return = agent.run()
     
     # Compute the regret as the difference between the optimal return and cumumlative return

@@ -112,13 +112,15 @@ class UCRL2_VTR_HOEFFDING(object):
         return pi
 
     def run(self):
-        print('UCRL2_VTR')
+        print('UCRL2_VTR(HOEFFDING)')
         episode_return = []
 
-        A_k = self.A.copy()
         t_k = 1
+        A_k = self.A.copy()
+
         w_k = np.ones(self.env.nState)
         R = 0
+
         for t in tqdm(range(1, self.T + 1)):
             if np.linalg.det(self.A) > 2 * np.linalg.det(A_k):
                 t_k = t
@@ -127,8 +129,7 @@ class UCRL2_VTR_HOEFFDING(object):
                 u_k = self.EVI(t_k)
                 pi = self.POLICY(u_k, t_k)
                 
-                tmp = (max(u_k) - min(u_k)) / 2
-                w_k = {s: u_k[s] - tmp for s in range(self.env.nState)}
+                w_k = u_k - (max(u_k) - min(u_k)) / 2
 
             s = self.env.state
             if t_k == 1:
@@ -139,11 +140,11 @@ class UCRL2_VTR_HOEFFDING(object):
             r, s_ = self.env.advance(a)
             R += r
 
-            tmp = self.mixture(s, a, w_k)
+            phi_w = self.mixture(s, a, w_k)
 
-            self.A += np.outer(tmp, tmp)
-            self.Ainv -= np.dot(np.outer(np.dot(self.Ainv, tmp), tmp), self.Ainv) / (1 + np.dot(np.dot(tmp, self.Ainv), tmp))
-            self.b += np.multiply(w_k[s_], tmp)
+            self.A += np.outer(phi_w, phi_w)
+            self.Ainv -= np.dot(np.outer(np.dot(self.Ainv, phi_w), phi_w), self.Ainv) / (1 + np.dot(np.dot(phi_w, self.Ainv), phi_w))
+            self.b += np.multiply(w_k[s_], phi_w)
 
             self.theta = np.dot(self.Ainv, self.b)
 
@@ -160,7 +161,7 @@ def evaluate_hyperparameters(args):
     env = HardLinearMixtureMDP(d=d, D=D, T=T)
     agent = UCRL2_VTR_HOEFFDING(env, T=T, delta=delta, N=N, epsilon=epsilon)  # N is set arbitrarily
 
-    # Run the UCLK_C algorithm
+    # Run the UCRL2_VTR_HOEFFDING algorithm
     cumulative_return = agent.run()
     
     # Compute the regret as the difference between the optimal return and cumumlative return

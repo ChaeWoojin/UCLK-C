@@ -11,12 +11,12 @@ import gurobipy as gp
 from gurobipy import GRB
 from env.env import *  # Assuming your environment module is correctly set up
 
-class UCLK_C(object):
-    def __init__(self, env, T, delta, N, epsilon):
+class UCRL2_VTR_BERNSTEIN(object):
+    def __init__(self, env, T, N, delta, epsilon):
         self.env = env
         self.T = T
         self.d = env.d
-        self.gamma = 1 - np.sqrt(self.d / (self.env.H * self.T))
+        self.gamma = 1 - np.sqrt(self.d / (self.env.D * self.T))
 
         self.theta_star = self.env.theta_tilde
         
@@ -25,7 +25,7 @@ class UCLK_C(object):
         self.delta = delta
         self.N = N
         self.epsilon = epsilon
-        
+
         self.A_hat = self.lam * np.identity(self.d)
         self.A_til = self.lam * np.identity(self.d)
         self.Ainv_hat = np.linalg.inv(self.A_hat)
@@ -34,8 +34,8 @@ class UCLK_C(object):
         self.b_til = np.zeros(self.d)
 
         self.theta_hat = np.zeros(self.d)
-        self.theta_til = np.zeros(self.d)
-
+        self.theta_til = np.zeros(self.d)    
+    
         self.phi = self.env.phi
         
     def mixture(self, s, a, u):
@@ -46,20 +46,20 @@ class UCLK_C(object):
 
     def EVI(self, t_k):
         cnt = 0
-        v = np.ones(self.env.nState) * 1 / (1 - self.gamma)
-        q = np.ones((self.env.nState, self.env.nAction)) * 1 / (1 - self.gamma)
+        u = np.zeros(self.env.nState)
         Beta_t = self.Beta(t_k)
         while True:
-            v_old = v.copy()
+            u_old = u.copy()
             cnt += 1
             for s in range(self.env.nState):
+                max_value = -1e9
                 for a in range(self.env.nAction):
-                    phi_v = self.mixture(s, a, v)
+                    phi_u = self.mixture(s, a, u)
 
                     model = gp.Model("optimization")
                     theta = model.addMVar(self.d, lb=-GRB.INFINITY, ub=GRB.INFINITY, name="theta")
                     
-                    model.setObjective(phi_v @ theta, GRB.MAXIMIZE)
+                    model.setObjective(phi_u @ theta, GRB.MAXIMIZE)
                     
                     model.addConstr((theta - self.theta_hat) @ self.A_hat @ (theta - self.theta_hat) <= Beta_t**2, "C_t")
                     model.addConstr(theta.sum() == 1, "sum_to_one")
@@ -71,42 +71,64 @@ class UCLK_C(object):
                     try:
                         model.optimize()
                         if model.status == GRB.OPTIMAL:
-                            q[s,a] = self.env.reward[s,a][0] + self.gamma * model.objVal
+                            value = self.env.reward[s,a][0] + model.objVal
+                            max_value = max(max_value, value)
                         else:
                             print(f"Optimization failed for state {s}, action {a} at {t_k}. Status: {model.status}")
                     except gp.GurobiError as e:
                         print(f"Gurobi error for state {s}, action {a} at {t_k}: {e}")
-            
-            for s in range(self.env.nState):
-                v[s] = max(q[s,:])
-            
-            for s in range(self.env.nState):
-                v[s] = min(v[s], min(v) + self.env.H)
+                u[s] = max_value
 
-            if cnt == self.N or np.max(v - v_old) - np.min(v - v_old) <= self.epsilon:
-            # if cnt == self.N:
+            if cnt == self.N or max(u - u_old) - min(u - u_old) <= self.epsilon:
                 break
                 
-        return q, v
+        return u
 
-    def POLICY(self, q):
-        pi = {s: 0 for s in range(self.env.nState)}
+    def POLICY(self, u_k, t_k):
+        pi = {}
+        Beta_t = self.Beta(t_k)
         for s in range(self.env.nState):
-            pi[s] = self.env.argmax(np.array([q[(s,a)] for a in range(self.env.nAction)]))
+            q = []
+            for a in range(self.env.nAction):
+                phi_u = self.mixture(s, a, u_k)
+
+                model = gp.Model("optimization")
+                theta = model.addMVar(self.d, lb=-GRB.INFINITY, ub=GRB.INFINITY, name="theta")
+                
+                model.setObjective(phi_u @ theta, GRB.MAXIMIZE)
+                
+                model.addConstr((theta - self.theta_hat) @ self.A_hat @ (theta - self.theta_hat) <= Beta_t**2, "C_t")
+                model.addConstr(theta.sum() == 1, "sum_to_one")
+                model.addConstr(theta >= 0, "non_negative")
+                model.addConstr(theta @ theta <= self.B**2, "norm_constraint")
+
+                model.setParam('OutputFlag', 0)
+                
+                try:
+                    model.optimize()
+                    if model.status == GRB.OPTIMAL:
+                        theta_k = theta.X
+                        q.append(self.env.reward[s, a][0] + np.dot(theta_k, phi_u))
+                    else:
+                        print(f"Optimization failed for state {s}, action {a} at {t_k}. Status: {model.status}")
+                except gp.GurobiError as e:
+                    print(f"Gurobi error for state {s}, action {a} at {t_k}: {e}")
+            
+            pi[s] = self.env.argmax(np.array(q))
         return pi
 
     def VARIANCE(self, s, a, w, t):
         phi_w2 = self.mixture(s, a, np.square(w))
         phi_w = self.mixture(s, a, w)
         
-        Beta_check = 8 * self.d * np.sqrt(np.log(1 + t / self.lam) * np.log(4 * t**2 / self.delta)) \
+        Beta_check = 8 * self.d * np.sqrt(np.log(1 + t / (4 * self.lam)) * np.log(4 * t**2 / self.delta)) \
                     + 4 * np.sqrt(self.d) * np.log(4 * t**2 / self.delta) + np.sqrt(self.lam) * self.B
-        Beta_til = 8 * self.env.H**2 * np.sqrt(self.d * np.log(1 + t * self.env.H**2 / (self.d * self.lam)) * np.log(4 * t**2 / self.delta)) \
-                    + 4 * self.env.H**2 * np.log(4 * t**2 / self.delta) + np.sqrt(self.lam) * self.B
+        Beta_til = 2 * self.env.D**2 * np.sqrt(self.d * np.log(1 + (t * self.env.D**2) / (4 * self.d * self.lam)) * np.log(4 * t**2 / self.delta)) \
+                    + self.env.D**2 * np.log(4 * t**2 / self.delta) + np.sqrt(self.lam) * self.B
         
-        VW = np.clip(np.dot(phi_w2, self.theta_til), 0, self.env.H**2) - np.clip(np.dot(phi_w, self.theta_hat), 0, self.env.H)**2
-        E = min(self.env.H**2, 2 * self.env.H * Beta_check * np.sqrt(np.dot(np.dot(phi_w, self.Ainv_hat), phi_w))) \
-            + min(self.env.H**2, Beta_til * np.sqrt(np.dot(np.dot(phi_w2, self.Ainv_til), phi_w2)))
+        VW = np.clip(np.dot(phi_w2, self.theta_til), 0, self.env.D**2) - np.clip(np.dot(phi_w, self.theta_hat), 0, self.env.D)**2
+        E = min(self.env.D**2 / 4 , self.env.D * Beta_check * np.sqrt(np.dot(np.dot(phi_w, self.Ainv_hat), phi_w))) \
+            + min(self.env.D**2 / 4 , Beta_til * np.sqrt(np.dot(np.dot(phi_w2, self.Ainv_til), phi_w2)))
 
         return VW + E
 
@@ -128,9 +150,9 @@ class UCLK_C(object):
                 A_hat_k = self.A_hat.copy()
 
                 t_k = t
-                q_k, v_k = self.EVI(t_k)
-                w_k = v_k - np.min(v_k) 
-                pi = self.POLICY(q_k)
+                u_k = self.EVI(t_k)
+                w_k = u_k - (max(u_k) + min(u_k)) / 2 
+                pi = self.POLICY(u_k, t_k)
 
             s = self.env.state
             a = pi[s]
@@ -138,7 +160,7 @@ class UCLK_C(object):
             r, s_ = self.env.advance(a)
             R += r
             
-            sig = np.sqrt(max(self.env.H**2 / self.d, self.VARIANCE(s, a, w_k, t)))
+            sig = np.sqrt(max(self.env.D**2 / self.d, self.VARIANCE(s, a, w_k, t)))
 
             phi_w = self.mixture(s, a, w_k)
             phi_w2 = self.mixture(s, a, np.square(w_k))
@@ -159,8 +181,6 @@ class UCLK_C(object):
 
         return cumulative_return
     
-    
-
 def evaluate_hyperparameters(args):
     """
     Function to initialize environment and agent, run the algorithm, and store the cumulative regret.
@@ -168,7 +188,7 @@ def evaluate_hyperparameters(args):
     """
     d, D, T, N, delta, epsilon = args
     env = HardLinearMixtureMDP(d=d, D=D, T=T)
-    agent = UCLK_C(env, T=T, delta=delta, N=N, epsilon=epsilon)  # N is set arbitrarily
+    agent = UCRL2_VTR_BERNSTEIN(env, T=T, delta=delta, N=N, epsilon=epsilon)  # N is set arbitrarily
 
     # Run the UCLK_C algorithm
     cumulative_return = agent.run()
@@ -183,7 +203,7 @@ def evaluate_hyperparameters(args):
     }
 
     # Save cumulative regret to a file for this hyperparameter set
-    filename = f"./UCLK-C/N={N}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}.json"
+    filename = f"./UCRL2-VTR(BERNSTEIN)/N={N}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}.json"
     with open(filename, 'w') as f:
         json.dump(results, f)
 
@@ -238,7 +258,7 @@ if __name__ == "__main__":
 
     T_values = [5000]  # Time horizon
     
-    N_values = [300]
+    N_values = [200, 300]
     
     # delta_values = [0.01]  # Exploration-exploitation trade-off parameter
     delta_values = [0.05]  # Exploration-exploitation trade-off parameter
@@ -259,8 +279,3 @@ if __name__ == "__main__":
 
     # Plot the cumulative regret of the best parameter set
     plot_regret(best_result['regret_file'])
-
-
-    # filename = "./UCLK-C/N=200/regret_d_8_D_181.50_T_5000_N_200_delta_0.05_epsilon_1e-06.json"
-    # plot_regret(filename)
-    

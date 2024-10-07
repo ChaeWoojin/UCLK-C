@@ -175,4 +175,7 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
-ref/
+data/*
+algorithms/UCLK-C/*
+algorithms/UCRL2-VTR(BERNSTEIN)/*
+algorithms/UCRL2-VTR(HOEFFDING)/*

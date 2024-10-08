@@ -62,9 +62,19 @@ class UCLK_C(object):
                     model.setObjective(phi_v @ theta, GRB.MAXIMIZE)
                     
                     model.addConstr((theta - self.theta_hat) @ self.A_hat @ (theta - self.theta_hat) <= Beta_t**2, "C_t")
-                    model.addConstr(theta.sum() == 1, "sum_to_one")
-                    model.addConstr(theta >= 0, "non_negative")
                     model.addConstr(theta @ theta <= self.B**2, "norm_constraint")
+
+                    # # Add non-negativity constraints for transition probabilities
+                    # for s in range(self.env.nState):
+                    #     for a in range(self.env.nAction):
+                    #         for s_ in range(self.env.nState):
+                    #             model.addConstr(self.phi[(s, a, s_)] @ theta >= 0, name=f"probability_nonneg_{s}_{a}_{s_}")
+
+                    # # Add constraint that the sum of transition probabilities must equal 1 for each (s, a)
+                    # for s in self.psi.keys():
+                    #     for a in range(self.env.nAction):
+                    #         phi_sum = gp.quicksum(self.phi[(s, a, s_)] @ theta for s_ in range(self.env.nState))
+                    #         model.addConstr(phi_sum == 1, name=f"probability_sum_{s}_{a}")
 
                     model.setParam('OutputFlag', 0)
                     
@@ -234,13 +244,11 @@ if __name__ == "__main__":
     d_values = [8]  # Dimension 'd'
     
     D_values = np.linspace(50, 150, 11)  # Example range for 'D'
-    # D_values = np.linspace(1.5, 3, 10)  # Example range for 'D'
 
     T_values = [10000]  # Time horizon
     
     N_values = [200, 300]
     
-    # delta_values = [0.01]  # Exploration-exploitation trade-off parameter
     delta_values = [0.05]  # Exploration-exploitation trade-off parameter
     
     epsilon_values = [0.000001]  # Precision for stopping the EVI

@@ -12,8 +12,8 @@ class HardLinearMixtureMDP:
         self.timestep = 0
         self.state = 0 
         
-        # self.triangle = 1/45 * (self.d - 1) / np.sqrt((2 * self.T * np.log(2)) / (5 * self.delta))
-        self.triangle = 1/2 * (self.d - 1) / np.sqrt((2 * self.T * np.log(2)) / (5 * self.delta))
+        self.triangle = 1/45 * (self.d - 1) / np.sqrt((2 * self.T * np.log(2)) / (5 * self.delta))
+        # self.triangle = 1/2 * (self.d - 1) / np.sqrt((2 * self.T * np.log(2)) / (5 * self.delta))
         self.alpha = np.sqrt(self.triangle / ((self.d - 1) * (1 + self.triangle)))
         self.beta =  np.sqrt(1 / (1 + self.triangle))
         

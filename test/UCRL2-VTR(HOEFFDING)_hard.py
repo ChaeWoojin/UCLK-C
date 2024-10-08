@@ -1,6 +1,6 @@
-import os
-sys.path.append('../')
 import sys
+sys.path.append('../')
+import os
 import random
 import numpy as np
 import json
@@ -48,13 +48,14 @@ def main():
     runs = 10  # Adjust this based on the number of parallel runs
     seeds = [123 * i for i in range(runs)]
     d = 8
-    D = 
+    D = 110
     T = 10000
     N = 200
     delta = 0.05
     epsilon = 0.000001
     
     resultDir = f"../data/hardtolearn/UCRL2_VTR(HOEFFDING)/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}"
+    print(f"Run UCRL2_VTR(HOEFFDING)_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}")
     
     # Use multiprocessing to run experiments in parallel
     pool = mp.Pool(mp.cpu_count())  # Use all available CPUs

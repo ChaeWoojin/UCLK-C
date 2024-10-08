@@ -127,8 +127,8 @@ def run_mdp_with_hyperparams(d, D, T):
 
 # # Define the hyperparameters ranges to try
 # d_values = [8]  # Example values for 'd'
-# D_values = np.linspace(1.5, 101.5, 21)  # Example values for 'D'
-# T_values = [5000]  # Example values for 'T'
+# D_values = np.linspace(130, 150, 2)  # Example values for 'D'
+# T_values = [10000]  # Example values for 'T'
 
 # # Iterate over all hyperparameter combinations
 # for d, D, T in itertools.product(d_values, D_values, T_values):

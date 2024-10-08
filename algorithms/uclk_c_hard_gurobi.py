@@ -233,12 +233,12 @@ if __name__ == "__main__":
     # Define the hyperparameter ranges
     d_values = [8]  # Dimension 'd'
     
-    D_values = np.linspace(50, 150, 6)  # Example range for 'D'
+    D_values = np.linspace(50, 150, 11)  # Example range for 'D'
     # D_values = np.linspace(1.5, 3, 10)  # Example range for 'D'
 
-    T_values = [5000]  # Time horizon
+    T_values = [10000]  # Time horizon
     
-    N_values = [300]
+    N_values = [200, 300]
     
     # delta_values = [0.01]  # Exploration-exploitation trade-off parameter
     delta_values = [0.05]  # Exploration-exploitation trade-off parameter
@@ -249,7 +249,7 @@ if __name__ == "__main__":
     results = parallel_hyperparameter_search(d_values, D_values, T_values, N_values, delta_values, epsilon_values)
 
     # Find the best hyperparameter combination based on maximum episodic return
-    best_result = max(results, key=lambda x: x['cumulative_regret'])
+    best_result = max(results, key=lambda x: x['cumulative_return'])
 
     # # Print out the best result
     print("Best hyperparameters found:")

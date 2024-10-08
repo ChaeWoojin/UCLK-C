@@ -26,7 +26,7 @@ class UCRL2_VTR_HOEFFDING(object):
 
         self.A = self.lam * np.identity(self.d)
         self.Ainv = np.linalg.inv(self.A)
-        self.b = self.lam * np.zeros(self.d)
+        self.b = np.zeros(self.d)
 
         self.N = N
         self.phi = env.phi
@@ -113,7 +113,7 @@ class UCRL2_VTR_HOEFFDING(object):
 
     def run(self):
         print('UCRL2_VTR(HOEFFDING)')
-        episode_return = []
+        cumulative_return = []
 
         t_k = 1
         A_k = self.A.copy()
@@ -148,9 +148,9 @@ class UCRL2_VTR_HOEFFDING(object):
 
             self.theta = np.dot(self.Ainv, self.b)
 
-            episode_return.append(R)
+            cumulative_return.append(R)
 
-        return episode_return
+        return cumulative_return
         
 def evaluate_hyperparameters(args):
     """
@@ -224,10 +224,10 @@ if __name__ == "__main__":
     # Define the hyperparameter ranges
     d_values = [8]  # Dimension 'd'
     
-    D_values = np.linspace(50, 150, 6)  # Example range for 'D'
+    D_values = np.linspace(50, 150, 11)  # Example range for 'D'
     # D_values = np.linspace(1.5, 3, 10)  # Example range for 'D'
 
-    T_values = [5000]  # Time horizon
+    T_values = [10000]  # Time horizon
     
     N_values = [200, 300]
     

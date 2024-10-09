@@ -48,7 +48,7 @@ def main():
     runs = 10  # Adjust this based on the number of parallel runs
     seeds = [123 * i for i in range(runs)]
     d = 8
-    D = 110
+    D = 140
     T = 10000
     N = 200
     delta = 0.05

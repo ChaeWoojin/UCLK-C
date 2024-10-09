@@ -193,7 +193,8 @@ def evaluate_hyperparameters(args):
     }
 
     # Save cumulative regret to a file for this hyperparameter set
-    filename = f"./UCLK-C/N={N}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}.json"
+    # filename = f"./UCLK-C/N={N}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}.json"
+    filename = f"./delta_1_over_2/UCLK-C/N={N}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}.json"
     with open(filename, 'w') as f:
         json.dump(results, f)
 

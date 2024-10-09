@@ -48,7 +48,7 @@ def main():
     runs = 10  # Adjust this based on the number of parallel runs
     seeds = [123 * i for i in range(runs)]
     d = 8
-    D = 110
+    D = 140
     T = 10000
     N = 200
     delta = 0.05
@@ -60,7 +60,7 @@ def main():
     # Use multiprocessing to run experiments in parallel
     pool = mp.Pool(mp.cpu_count())  # Use all available CPUs
 
-    # Use pool.starmap to distribute the runs in parallel
+    # Use pool.starmap to   distribute the runs in parallel
     results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, N, delta, epsilon, resultDir) for run in range(runs)])
 
     pool.close()  # Close the pool to prevent new tasks from being submitted

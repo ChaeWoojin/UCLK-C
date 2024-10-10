@@ -15,8 +15,13 @@ import seaborn as sns
 def run_experiment(run, seed, d, D, T, N, delta, epsilon, resultDir):
     random.seed(seed)
     
+    if T > 5000:
+        c = 1/2
+    else:
+        c = 1/15
+    
     # Create the environment
-    env = HardLinearMixtureMDP(d=d, D=D, T=T)
+    env = HardLinearMixtureMDP(d=d, D=D, T=T, c=c)
     
     # Initialize the agent
     agent = UCLK_C(env, T=T, delta=delta, N=N, epsilon=epsilon)
@@ -46,39 +51,28 @@ def run_experiment(run, seed, d, D, T, N, delta, epsilon, resultDir):
 
 def main():
     runs = 10  # Adjust this based on the number of parallel runs
-    seeds = [123 * i for i in range(runs)]
-    d = 8
-    D = 140
-    T = 10000
-    N = 200
-    delta = 0.05
-    epsilon = 0.000001
-
-    resultDir = f"../data/hardtolearn/UCLK_C/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}"
-    print(f"Run UCLK_C_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}")
     
-    # Use multiprocessing to run experiments in parallel
-    pool = mp.Pool(mp.cpu_count())  # Use all available CPUs
+    for Diam in [120]:
+        for t in list(range(1000, 7000, 1000)):
+            seeds = [123 * i for i in range(runs)]
+            d = 8
+            D = Diam
+            T = t
+            N = 200
+            delta = 0.05
+            epsilon = 0.000001
 
-    # Use pool.starmap to distribute the runs in parallel
-    results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, N, delta, epsilon, resultDir) for run in range(runs)])
+            resultDir = f"../data/hardtolearn/UCLK_C(discrete)/D={D}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}"
+            print(f"Run UCLK_C_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}")
+            
+            # Use multiprocessing to run experiments in parallel
+            pool = mp.Pool(mp.cpu_count())  # Use all available CPUs
 
-    pool.close()  # Close the pool to prevent new tasks from being submitted
-    pool.join()  # Wait for all worker processes to finish
+            # Use pool.starmap to distribute the runs in parallel
+            results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, N, delta, epsilon, resultDir) for run in range(runs)])
 
-    # Plotting the cumulative returns
-    episodes = np.arange(T)
-    plt.figure()
-
-    data_mean = np.mean(results, axis=0)
-    data_std = np.std(results, axis=0)
-        
-    plt.fill_between(episodes, data_mean + data_std, data_mean - data_std, alpha=0.2)
-    plt.plot(episodes, data_mean, linewidth=1.8)
-    plt.title("Hard to Learn, T=5000")
-    plt.xlabel("Timesteps")
-    plt.ylabel("Cumulative Regret")
-    plt.show()
+            pool.close()  # Close the pool to prevent new tasks from being submitted
+            pool.join()  # Wait for all worker processes to finish
 
     return results
 

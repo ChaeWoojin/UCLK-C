@@ -21,7 +21,9 @@ pip install -r requirements.txt
 
 ## Results
 The results are visualized in the following PDF:  
-[Hard-to-learn, UCRL-C, UCRL2-VTR(Bernstein)](./(Hard-to-learn_UCRL-C_vs_UCRL2-VTR(Bernstein))_regret_d_8_D_120_T_10000_delta_0.05_epsilon_1e-06.pdf)
+[Hard-to-learn, UCRL-C, UCRL2-VTR(Bernstein)]((Hard-to-learn_UCLK-C_vs_UCRL2-VTR(Bernstein))_regret_d_8_D_120_T_10000_delta_0.05_epsilon_1e-06.pdf)
+
+
 
 ## License
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

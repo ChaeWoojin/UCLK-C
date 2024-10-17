@@ -85,7 +85,7 @@ class UCRL2_VTR_BERNSTEIN(object):
         return u
 
     def POLICY(self, u_k, t_k):
-        pi = {}
+        pi = np.zeros(self.env.nState)
         Beta_t = self.Beta(t_k)
         for s in range(self.env.nState):
             q = []
@@ -100,17 +100,17 @@ class UCRL2_VTR_BERNSTEIN(object):
                 model.addConstr((theta - self.theta_hat) @ self.A_hat @ (theta - self.theta_hat) <= Beta_t**2, "C_t")
                 model.addConstr(theta @ theta <= self.B**2, "norm_constraint")
                 
-                # # Add non-negativity constraints for transition probabilities
-                # for s in range(self.env.nState):
-                #     for a in range(self.env.nAction):
-                #         for s_ in range(self.env.nState):
-                #             model.addConstr(self.phi[(s, a, s_)] @ theta >= 0, name=f"probability_nonneg_{s}_{a}_{s_}")
+                # Add non-negativity constraints for transition probabilities
+                for s in range(self.env.nState):
+                    for a in range(self.env.nAction):
+                        for s_ in range(self.env.nState):
+                            model.addConstr(self.phi[(s, a, s_)] @ theta >= 0, name=f"probability_nonneg_{s}_{a}_{s_}")
 
-                # # Add constraint that the sum of transition probabilities must equal 1 for each (s, a)
-                # for s in self.psi.keys():
-                #     for a in range(self.env.nAction):
-                #         phi_sum = gp.quicksum(self.phi[(s, a, s_)] @ theta for s_ in range(self.env.nState))
-                #         model.addConstr(phi_sum == 1, name=f"probability_sum_{s}_{a}")
+                # Add constraint that the sum of transition probabilities must equal 1 for each (s, a)
+                for s in range(self.env.nState):
+                    for a in range(self.env.nAction):
+                        phi_sum = gp.quicksum(self.phi[(s, a, s_)] @ theta for s_ in range(self.env.nState))
+                        model.addConstr(phi_sum == 1, name=f"probability_sum_{s}_{a}")
 
                 model.setParam('OutputFlag', 0)
                 
@@ -167,7 +167,6 @@ class UCRL2_VTR_BERNSTEIN(object):
                 a = np.random.choice([a for a in range(self.env.nAction)])
             else:
                 a = pi[s]
-                
             r, s_ = self.env.advance(a)
             R += r
             
@@ -214,8 +213,7 @@ def evaluate_hyperparameters(args):
     }
 
     # Save cumulative regret to a file for this hyperparameter set
-    # filename = f"./UCRL2-VTR(BERNSTEIN)/N={N}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}.json"
-    filename = f"./delta_1_over_2/UCRL2-VTR(BERNSTEIN)/N={N}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}.json"
+    filename = f"./UCRL2-VTR(BERNSTEIN)/N={N}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}.json"
     with open(filename, 'w') as f:
         json.dump(results, f)
 
@@ -227,65 +225,3 @@ def evaluate_hyperparameters(args):
         'regret_file': filename
     }
 
-
-def parallel_hyperparameter_search(d_values, D_values, T_values, N_values, delta_values, epsilon_values):
-    # Create a list of all hyperparameter combinations
-    param_combinations = list(itertools.product(d_values, D_values, T_values, N_values, delta_values, epsilon_values))
-
-    # Use multiprocessing to parallelize the hyperparameter search
-    with Pool(processes=cpu_count()) as pool:
-        results = list(tqdm(pool.imap(evaluate_hyperparameters, param_combinations), total=len(param_combinations)))
-
-    return results
-
-
-def plot_regret(filename):
-    """
-    Load the cumulative regret from a file and plot it.
-    """
-    with open(filename) as f:
-        data = json.load(f)
-        cumulative_regret = data['cumulative_regret']
-
-    # Convert the list back to a numpy array for easier plotting
-    cumulative_regret = np.array(cumulative_regret)
-
-    # Plot the cumulative regret
-    plt.figure(figsize=(10, 6))
-    plt.plot(cumulative_regret, label="Cumulative Regret")
-    plt.xlabel("Timestep")
-    plt.ylabel("Cumulative Regret")
-    plt.title("Cumulative Regret of Best Parameter Set")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-
-if __name__ == "__main__":
-    # Define the hyperparameter ranges
-    d_values = [8]  # Dimension 'd'
-    
-    D_values = np.linspace(50, 150, 11)  # Example range for 'D'
-
-    T_values = [10000]  # Time horizon
-    
-    N_values = [200, 300]
-    
-    delta_values = [0.05]  # Exploration-exploitation trade-off parameter
-    
-    epsilon_values = [0.000001]  # Precision for stopping the EVI
-
-    # Run the parallel hyperparameter search
-    results = parallel_hyperparameter_search(d_values, D_values, T_values, N_values, delta_values, epsilon_values)
-
-    # Find the best hyperparameter combination based on maximum episodic return
-    best_result = max(results, key=lambda x: x['cumulative_return'])
-
-    # # Print out the best result
-    print("Best hyperparameters found:")
-    print(f"d={best_result['d']}, D={best_result['D']}, T={best_result['T']}, delta={best_result['delta']}, epsilon={best_result['epsilon']}")
-    print(f"Episodic return: {best_result['cumulative_return']}, Optimal return: {best_result['opt_return']}")
-    print(f"Regret file: {best_result['regret_file']}")
-
-    # Plot the cumulative regret of the best parameter set
-    plot_regret(best_result['regret_file'])

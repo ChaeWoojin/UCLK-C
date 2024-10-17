@@ -190,38 +190,3 @@ class UCRL2_VTR_BERNSTEIN(object):
             cumulative_return.append(R)
 
         return cumulative_return
-    
-def evaluate_hyperparameters(args):
-    """
-    Function to initialize environment and agent, run the algorithm, and store the cumulative regret.
-    Args is a tuple containing (d, D, T, delta, epsilon).
-    """
-    d, D, T, N, delta, epsilon = args
-    env = HardLinearMixtureMDP(d=d, D=D, T=T)
-    agent = UCRL2_VTR_BERNSTEIN(env, T=T, delta=delta, N=N, epsilon=epsilon)  # N is set arbitrarily
-
-    # Run the UCRL2_VTR_BERNSTEIN algorithm
-    cumulative_return = agent.run()
-    
-    # Compute the regret as the difference between the optimal return and cumumlative return
-    opt_return = env.run_optimal_policy()
-    cumulative_regret = np.array(opt_return) - np.array(cumulative_return)
-
-    results = {
-        'cumulative_return': cumulative_return,
-        'cumulative_regret': cumulative_regret.tolist()
-    }
-
-    # Save cumulative regret to a file for this hyperparameter set
-    filename = f"./UCRL2-VTR(BERNSTEIN)/N={N}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}.json"
-    with open(filename, 'w') as f:
-        json.dump(results, f)
-
-    # Return the final results for comparison
-    return {
-        'd': d, 'D': D, 'T': T, 'delta': delta, 'epsilon': epsilon,
-        'cumulative_return': cumulative_return[-1],
-        'opt_return': opt_return[-1],
-        'regret_file': filename
-    }
-

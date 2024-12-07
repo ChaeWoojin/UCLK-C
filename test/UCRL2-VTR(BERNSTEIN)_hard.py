@@ -12,19 +12,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Function to run a single experiment
-def run_experiment(run, seed, d, D, T, N, delta, epsilon, resultDir):
+def run_experiment(run, seed, d, D, T, delta, epsilon, resultDir):
     random.seed(seed)
-    
-    if T > 5000:
-        c = 1/2
-    else:
-        c = 1/15
         
     # Create the environment
-    env = HardLinearMixtureMDP(d=d, D=D, T=T, c=c)        
+    env = HardLinearMixtureMDP(d=d, D=D, T=T)        
     
     # Initialize the agent
-    agent = UCRL2_VTR_BERNSTEIN(env, T=T, N=N, delta=delta, epsilon=epsilon)
+    agent = UCRL2_VTR_BERNSTEIN(env, T=T, delta=delta, epsilon=epsilon)
 
     # Run the UCLR2_VTR_BERNSTEIN algorithm
     cumulative_return = agent.run()
@@ -44,7 +39,7 @@ def run_experiment(run, seed, d, D, T, N, delta, epsilon, resultDir):
     if not os.path.exists(resultDir):
         os.makedirs(resultDir)  # Create the directory if it doesn't exist
 
-    with open(os.path.join(resultDir, f'results_run{run}.json'), 'w') as f:
+    with open(os.path.join(resultDir, f'results45_{run}.json'), 'w') as f:
         json.dump(results, f)
 
     return cumulative_regret
@@ -52,42 +47,27 @@ def run_experiment(run, seed, d, D, T, N, delta, epsilon, resultDir):
 def main():
     runs = 10  # Adjust this based on the number of parallel runs
     
-    for Diam in [120, 140]:
-        for t in list(range(1000, 11000, 1000))[::-1]:
+    for Diam in [120]:
+        for t in list(range(1000, 6000, 1000)):
             seeds = [123 * i for i in range(runs)]
             d = 8
             D = Diam
             T = t
-            N = 50
             delta = 0.05
-            epsilon = 0.000001
+            epsilon = 1e-2
             
-            resultDir = f"../data/hardtolearn/UCRL2_VTR(BERNSTEIN)(discrete)/D={D}/regret_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}"
-            print(f"Run UCRL2_VTR(BERNSTEIN)_d_{d}_D_{D:.2f}_T_{T}_N_{N}_delta_{delta}_epsilon_{epsilon}")
+            resultDir = f"../data/hardtolearn/UCRL2_VTR(BERNSTEIN)(discrete)/D={D}/regret_d_{d}_D_{D:.2f}_T_{T}_delta_{delta}_epsilon_{epsilon}"
+            print(f"Run UCRL2_VTR(BERNSTEIN)_d_{d}_D_{D:.2f}_T_{T}_delta_{delta}_epsilon_{epsilon}")
             
             # Use multiprocessing to run experiments in parallel
             pool = mp.Pool(mp.cpu_count())  # Use all available CPUs
 
             # Use pool.starmap to   distribute the runs in parallel
-            results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, N, delta, epsilon, resultDir) for run in range(runs)])
+            results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, delta, epsilon, resultDir) for run in range(runs)])
 
             pool.close()  # Close the pool to prevent new tasks from being submitted
             pool.join()  # Wait for all worker processes to finish
 
-    # # Plotting the cumulative returns
-    # episodes = np.arange(T)
-    # plt.figure()
-    
-    # data_mean = np.mean(results, axis=0)
-    # data_std = np.std(results, axis=0)
-        
-    # plt.fill_between(episodes, data_mean + data_std, data_mean - data_std, alpha=0.2)
-    # plt.plot(episodes, data_mean, linewidth=1.8)
-    # plt.title("Hard to Learn, T=500")
-    # plt.xlabel("Timesteps")
-
-    # plt.ylabel("Cumulative Returns")
-    # plt.show()
 
     return results
 

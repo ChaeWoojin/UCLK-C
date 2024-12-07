@@ -6,22 +6,21 @@ import numpy as np
 import json
 from tqdm import tqdm
 from env.env import *
-from algorithms.uclk_c_hard_gurobi import UCLK_C
+from algorithms.tsde_hard import TSDE
 import multiprocessing as mp
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Function to run a single experiment
-def run_experiment(run, seed, d, D, T, delta, epsilon, resultDir):
+def run_experiment(run, seed, d, D, T, resultDir):
     random.seed(seed)
-        
     # Create the environment
     env = HardLinearMixtureMDP(d=d, D=D, T=T)
     
     # Initialize the agent
-    agent = UCLK_C(env, T=T, delta=delta, epsilon=epsilon)
+    agent = TSDE(env, T=T)
 
-    # Run the UCLK_C algorithm
+    # Run the TSDE algorithm
     cumulative_return = agent.run()
     print("seed %d done"%(seed))
     
@@ -53,18 +52,15 @@ def main():
             d = 8
             D = Diam
             T = t
-            delta = 0.05
-            epsilon = 1e-2
 
-            resultDir = f"../data/hardtolearn/UCLK_C(discrete)/D={D}/regret_d_{d}_D_{D:.2f}_T_{T}_delta_{delta}_epsilon_{epsilon}"
-            print(f"Run UCLK_C_d_{d}_D_{D:.2f}_T_{T}_delta_{delta}_epsilon_{epsilon}")
+            resultDir = f"../data/hardtolearn/TSDE/D={D}/regret_d_{d}_D_{D:.2f}_T_{T}"
+            print(f"Run TSDE_d_{d}_D_{D:.2f}_T_{T}")
             
             # Use multiprocessing to run experiments in parallel
             pool = mp.Pool(mp.cpu_count())  # Use all available CPUs
 
             # Use pool.starmap to distribute the runs in parallel
-            # results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, N, delta, epsilon, resultDir) for run in range(runs)])
-            results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, delta, epsilon, resultDir) for run in range(runs)])
+            results = pool.starmap(run_experiment, [(run, seeds[run], d, D, T, resultDir) for run in range(runs)])
 
             pool.close()  # Close the pool to prevent new tasks from being submitted
             pool.join()  # Wait for all worker processes to finish

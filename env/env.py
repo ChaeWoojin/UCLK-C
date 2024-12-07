@@ -2,7 +2,7 @@ import numpy as np
 import itertools
 
 class HardLinearMixtureMDP:
-    def __init__(self, d, D, T, c):
+    def __init__(self, d, D, T, c = 1/45):
         self.d = d
         self.D = D
         self.T = T
@@ -12,7 +12,6 @@ class HardLinearMixtureMDP:
         self.timestep = 0
         self.state = 0 
         
-        # self.triangle = 1/45 * (self.d - 1) / np.sqrt((2 * self.T * np.log(2)) / (5 * self.delta))
         self.triangle = c * (self.d - 1) / np.sqrt((2 * self.T * np.log(2)) / (5 * self.delta))
         self.alpha = np.sqrt(self.triangle / ((self.d - 1) * (1 + self.triangle)))
         self.beta =  np.sqrt(1 / (1 + self.triangle))
@@ -33,15 +32,15 @@ class HardLinearMixtureMDP:
         return self.state
         
     def generate_reward(self):
-        reward = {}
+        reward = np.zeros((self.nState, self.nAction))
         for i in range(self.nAction):
-            reward[0, i] = (0, 0)
-            reward[1, i] = (1, 0)
+            reward[0, i] = 0
+            reward[1, i] = 1
         return reward
     
     def generate_phi(self):
+        # phi = np.zeros((self.nState, self.nAction, self.nState))
         phi = {(s, a, s_): np.zeros(self.d) for s in range(self.nState) for a in range(self.nAction) for s_ in range(self.nState)} 
-        
         for i in range(self.nAction):
             action_vector = self.actions[i]  # Assuming self.actions is a list of action vectors with size (self.d - 1)
             phi[(0, i, 0)] = np.concatenate((-self.alpha * action_vector, [self.beta * (1 - self.delta)]))
@@ -52,7 +51,7 @@ class HardLinearMixtureMDP:
         return phi
     
     def transition_prob(self, s, a):
-        action = self.actions[int(a)]
+        action = self.actions[a]
         if s == 0:  # from state x0
             prob_x0 = 1 - self.delta - np.dot(action, self.theta)
             prob_x1 = self.delta + np.dot(action, self.theta)
@@ -65,14 +64,14 @@ class HardLinearMixtureMDP:
     def advance(self, action):
         state = self.state
         probs = self.transition_prob(state, action)
-        reward = self.reward[state, action][0]
+        reward = self.reward[state, action]
         next_state = np.random.choice([0, 1], p=probs)
         self.state = next_state
         self.timestep += 1
         return reward, self.state
     
     def run_optimal_policy(self):
-        optimal_policy = [self.action_rank[0], self.action_rank[0]]
+        optimal_policy = np.array([self.action_rank[0], self.action_rank[0]], dtype=int)
         total_reward_optimal = []
         R = 0
         self.reset() 
@@ -87,3 +86,14 @@ class HardLinearMixtureMDP:
 
     def argmax(self,b):
         return np.random.choice(np.flatnonzero(b == b.max()))   
+
+# if __name__ == '__main__':
+#     d = 8
+#     D = 1000
+#     T = 10000
+#     env = HardLinearMixtureMDP(d, D, T)
+    
+#     print(f"diameter: {env.D}")
+#     print(f"span: {env.H}")
+#     print(f"triangle: {env.triangle}")
+    

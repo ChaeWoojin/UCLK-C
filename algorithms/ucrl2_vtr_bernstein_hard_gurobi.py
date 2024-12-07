@@ -12,18 +12,18 @@ from gurobipy import GRB
 from env.env import *  # Assuming your environment module is correctly set up
 
 class UCRL2_VTR_BERNSTEIN(object):
-    def __init__(self, env, T, N, delta, epsilon):
+    def __init__(self, env, T, delta, epsilon):
         self.env = env
         self.T = T
         self.d = env.d
-        self.gamma = 1 - np.sqrt(self.d / (self.env.D * self.T))
+        # self.gamma = 1 - np.sqrt(self.d / (self.env.D * self.T))
+        self.gamma = 0.9
 
         self.theta_star = self.env.theta_tilde
         
         self.B = max(self.env.triangle ** 2 + 1, np.linalg.norm(self.theta_star, ord=2))
         self.lam = 1 / (self.B**2) 
         self.delta = delta
-        self.N = N
         self.epsilon = epsilon
 
         self.A_hat = self.lam * np.identity(self.d)
@@ -46,87 +46,64 @@ class UCRL2_VTR_BERNSTEIN(object):
 
     def EVI(self, t_k):
         cnt = 0
-        u = np.zeros(self.env.nState)
+        gamma = 0.9 # For fast convergence
+        v = np.zeros(self.env.nState)
+        q = np.zeros((self.env.nState, self.env.nAction))
         Beta_t = self.Beta(t_k)
         while True:
-            u_old = u.copy()
+            v_old = v.copy()
             cnt += 1
             for s in range(self.env.nState):
-                max_value = -1e9
                 for a in range(self.env.nAction):
-                    phi_u = self.mixture(s, a, u)
+                    phi_v = self.mixture(s, a, v)
 
                     model = gp.Model("optimization")
                     theta = model.addMVar(self.d, lb=-GRB.INFINITY, ub=GRB.INFINITY, name="theta")
                     
-                    model.setObjective(phi_u @ theta, GRB.MAXIMIZE)
+                    model.setObjective(phi_v @ theta, GRB.MAXIMIZE)
                     
                     model.addConstr((theta - self.theta_hat) @ self.A_hat @ (theta - self.theta_hat) <= Beta_t**2, "C_t")
-                    model.addConstr(theta.sum() == 1, "sum_to_one")
-                    model.addConstr(theta >= 0, "non_negative")
                     model.addConstr(theta @ theta <= self.B**2, "norm_constraint")
+
+                    # Add non-negativity constraints for transition probabilities
+                    for cs in range(self.env.nState):
+                        for ca in range(self.env.nAction):
+                            for cs_ in range(self.env.nState):
+                                model.addConstr(self.phi[(cs, ca, cs_)] @ theta >= 0, name=f"probability_nonneg_{cs}_{ca}_{cs_}")
+
+                    # Add constraint that the sum of transition probabilities must equal 1 for each (s, a)
+                    for cs in range(self.env.nState):
+                        for ca in range(self.env.nAction):
+                            phi_sum = gp.quicksum(self.phi[(cs, ca, cs_)] @ theta for cs_ in range(self.env.nState))
+                            model.addConstr(phi_sum == 1, name=f"probability_sum_{cs}_{ca}")
 
                     model.setParam('OutputFlag', 0)
                     
                     try:
                         model.optimize()
                         if model.status == GRB.OPTIMAL:
-                            value = self.env.reward[s,a][0] + model.objVal
-                            max_value = max(max_value, value)
+                            q[s, a] = self.env.reward[s,a] + gamma * model.objVal
                         else:
                             print(f"Optimization failed for state {s}, action {a} at {t_k}. Status: {model.status}")
                     except gp.GurobiError as e:
                         print(f"Gurobi error for state {s}, action {a} at {t_k}: {e}")
-                u[s] = max_value
+            
+            for s in range(self.env.nState):
+                v[s] = max(q[s,:])
 
-            if cnt == self.N or max(u - u_old) - min(u - u_old) <= self.epsilon:
+            span = max(v - v_old) - min(v - v_old)
+            print((cnt, span, self.epsilon))
+            if cnt == 200 or span <= self.epsilon:
                 break
                 
-        return u
+        return q, v
 
-    def POLICY(self, u_k, t_k):
-        pi = np.zeros(self.env.nState)
-        Beta_t = self.Beta(t_k)
+    def POLICY(self, q):
+        pi = np.zeros(self.env.nState, dtype=int)
         for s in range(self.env.nState):
-            q = []
-            for a in range(self.env.nAction):
-                phi_u = self.mixture(s, a, u_k)
-
-                model = gp.Model("optimization")
-                theta = model.addMVar(self.d, lb=-GRB.INFINITY, ub=GRB.INFINITY, name="theta")
-                
-                model.setObjective(phi_u @ theta, GRB.MAXIMIZE)
-                
-                model.addConstr((theta - self.theta_hat) @ self.A_hat @ (theta - self.theta_hat) <= Beta_t**2, "C_t")
-                model.addConstr(theta @ theta <= self.B**2, "norm_constraint")
-                
-                # Add non-negativity constraints for transition probabilities
-                for s in range(self.env.nState):
-                    for a in range(self.env.nAction):
-                        for s_ in range(self.env.nState):
-                            model.addConstr(self.phi[(s, a, s_)] @ theta >= 0, name=f"probability_nonneg_{s}_{a}_{s_}")
-
-                # Add constraint that the sum of transition probabilities must equal 1 for each (s, a)
-                for s in range(self.env.nState):
-                    for a in range(self.env.nAction):
-                        phi_sum = gp.quicksum(self.phi[(s, a, s_)] @ theta for s_ in range(self.env.nState))
-                        model.addConstr(phi_sum == 1, name=f"probability_sum_{s}_{a}")
-
-                model.setParam('OutputFlag', 0)
-                
-                try:
-                    model.optimize()
-                    if model.status == GRB.OPTIMAL:
-                        theta_k = theta.X
-                        q.append(self.env.reward[s, a][0] + np.dot(theta_k, phi_u))
-                    else:
-                        print(f"Optimization failed for state {s}, action {a} at {t_k}. Status: {model.status}")
-                except gp.GurobiError as e:
-                    print(f"Gurobi error for state {s}, action {a} at {t_k}: {e}")
-            
-            pi[s] = self.env.argmax(np.array(q))
+            pi[s] = self.env.argmax(np.array([q[s, a] for a in range(self.env.nAction)]))
         return pi
-
+    
     def VARIANCE(self, s, a, w, t):
         phi_w2 = self.mixture(s, a, np.square(w))
         phi_w = self.mixture(s, a, w)
@@ -149,7 +126,10 @@ class UCRL2_VTR_BERNSTEIN(object):
         t_k = 1
         A_hat_k = self.A_hat.copy()
 
-        w_k = np.ones(self.env.nState)
+        q_k, v_k = self.EVI(t_k)
+        w_k = v_k - np.min(v_k)
+
+        pi = self.POLICY(q_k)
         R = 0
 
         for t in tqdm(range(1, self.T + 1)):
@@ -157,10 +137,9 @@ class UCRL2_VTR_BERNSTEIN(object):
                 t_k = t
                 A_hat_k = self.A_hat.copy()
 
-                u_k = self.EVI(t_k)
-                pi = self.POLICY(u_k, t_k)
-                
-                w_k = u_k - (max(u_k) - min(u_k)) / 2
+                q_k, v_k = self.EVI(t_k)
+                pi = self.POLICY(q_k)
+                w_k = v_k - (max(v_k) - min(v_k)) / 2
 
             s = self.env.state
             if t_k == 1:

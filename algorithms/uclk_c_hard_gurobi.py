@@ -12,18 +12,18 @@ from gurobipy import GRB
 from env.env import *  # Assuming your environment module is correctly set up
 
 class UCLK_C(object):
-    def __init__(self, env, T, delta, N, epsilon):
+    def __init__(self, env, T, delta, epsilon):
         self.env = env
         self.T = T
         self.d = env.d
-        self.gamma = 1 - np.sqrt(self.d / (self.env.H * self.T))
+        # self.gamma = 1 - np.sqrt(self.d / (self.env.H * self.T))
+        self.gamma = 0.9
 
         self.theta_star = self.env.theta_tilde
         
         self.B = max(self.env.triangle ** 2 + 1, np.linalg.norm(self.theta_star, ord=2))
         self.lam = 1 / (self.B**2) 
         self.delta = delta
-        self.N = N
         self.epsilon = epsilon
         
         self.A_hat = self.lam * np.identity(self.d)
@@ -65,23 +65,23 @@ class UCLK_C(object):
                     model.addConstr(theta @ theta <= self.B**2, "norm_constraint")
 
                     # Add non-negativity constraints for transition probabilities
-                    for s in range(self.env.nState):
-                        for a in range(self.env.nAction):
-                            for s_ in range(self.env.nState):
-                                model.addConstr(self.phi[(s, a, s_)] @ theta >= 0, name=f"probability_nonneg_{s}_{a}_{s_}")
+                    for cs in range(self.env.nState):
+                        for ca in range(self.env.nAction):
+                            for cs_ in range(self.env.nState):
+                                model.addConstr(self.phi[(cs, ca, cs_)] @ theta >= 0, name=f"probability_nonneg_{cs}_{ca}_{cs_}")
 
                     # Add constraint that the sum of transition probabilities must equal 1 for each (s, a)
-                    for s in range(self.env.nState):
-                        for a in range(self.env.nAction):
-                            phi_sum = gp.quicksum(self.phi[(s, a, s_)] @ theta for s_ in range(self.env.nState))
-                            model.addConstr(phi_sum == 1, name=f"probability_sum_{s}_{a}")
+                    for cs in range(self.env.nState):
+                        for ca in range(self.env.nAction):
+                            phi_sum = gp.quicksum(self.phi[(cs, ca, cs_)] @ theta for cs_ in range(self.env.nState))
+                            model.addConstr(phi_sum == 1, name=f"probability_sum_{cs}_{ca}")
 
                     model.setParam('OutputFlag', 0)
                     
                     try:
                         model.optimize()
                         if model.status == GRB.OPTIMAL:
-                            q[s,a] = self.env.reward[s,a][0] + self.gamma * model.objVal
+                            q[s,a] = self.env.reward[s,a] + self.gamma * model.objVal
                         else:
                             print(f"Optimization failed for state {s}, action {a} at {t_k}. Status: {model.status}")
                     except gp.GurobiError as e:
@@ -92,17 +92,19 @@ class UCLK_C(object):
             
             for s in range(self.env.nState):
                 v[s] = min(v[s], min(v) + self.env.H)
-
-            if cnt == self.N or np.max(v - v_old) - np.min(v - v_old) <= self.epsilon:
-            # if cnt == self.N:
+            
+            span = np.max(v - v_old) - np.min(v - v_old)
+            print((cnt, span, self.epsilon))
+            # if cnt == self.N or span <= self.epsilon:
+            if cnt == 200 or span <= self.epsilon:
                 break
                 
         return q, v
 
     def POLICY(self, q):
-        pi = {s: 0 for s in range(self.env.nState)}
+        pi = np.zeros(self.env.nState, dtype=int)
         for s in range(self.env.nState):
-            pi[s] = self.env.argmax(np.array([q[(s,a)] for a in range(self.env.nAction)]))
+            pi[s] = self.env.argmax(np.array([q[s, a] for a in range(self.env.nAction)]))
         return pi
 
     def VARIANCE(self, s, a, w, t):
@@ -130,6 +132,7 @@ class UCLK_C(object):
         t_k = 1
         q_k, v_k = self.EVI(t_k)
         w_k = v_k - np.min(v_k) 
+        # print(w_k)
         pi = self.POLICY(q_k)
         
         R = 0
@@ -142,6 +145,7 @@ class UCLK_C(object):
                 w_k = v_k - np.min(v_k) 
                 pi = self.POLICY(q_k)
 
+            # print((np.linalg.det(self.A_hat), np.linalg.det(A_hat_k)))
             s = self.env.state
             a = pi[s]
                 

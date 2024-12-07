@@ -1,9 +1,9 @@
-# UCRL-C
+# UCLK-C
 
 This repository implements and compares the algorithms 'UCRL-C' and 'UCRL2-VTR (Bernstein-typed)'.
 
 ## Algorithms
-- **UCRL-C**: introduced in "Learning Infinite-Horizon Average-Reward Linear Mixture MDPs of Bounded Span"
+- **UCLK-C**: introduced in "Learning Infinite-Horizon Average-Reward Linear Mixture MDPs of Bounded Span"
 - **UCRL2-VTR**: introduced in "Nearly Minimax Optimal Regret for Learning Infinite-horizon Average-reward MDPs with Linear Function Approximation"
 
 ## Project Structure

@@ -145,7 +145,6 @@ class UCLK_C(object):
                 w_k = v_k - np.min(v_k) 
                 pi = self.POLICY(q_k)
 
-            # print((np.linalg.det(self.A_hat), np.linalg.det(A_hat_k)))
             s = self.env.state
             a = pi[s]
                 

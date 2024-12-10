@@ -87,13 +87,3 @@ class HardLinearMixtureMDP:
     def argmax(self,b):
         return np.random.choice(np.flatnonzero(b == b.max()))   
 
-# if __name__ == '__main__':
-#     d = 8
-#     D = 1000
-#     T = 10000
-#     env = HardLinearMixtureMDP(d, D, T)
-    
-#     print(f"diameter: {env.D}")
-#     print(f"span: {env.H}")
-#     print(f"triangle: {env.triangle}")
-    

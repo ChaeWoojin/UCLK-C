@@ -24,7 +24,9 @@ pip install -r requirements.txt
 ```
 
 ## Results
+![plot](./image/Total_Comparison_regret_d_8_D_120_T_10000_delta_0.05_epsilon_1e-06.png)
 
+The experiment supports the efficacy of our algorithm 'UCLK-C' in terms of learning hard-to-learn MDP.
 
 ## License
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
